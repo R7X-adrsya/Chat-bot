@@ -81,7 +81,7 @@ def enhanced_sentiment_analysis(text):
         return "negative"
     elif any(word in text_lower for word in myself_keywords ):
         return "alone"
-    return "alone"
+    return "neutral"
 
 
 def extract_user_info(text, user):
@@ -171,10 +171,7 @@ def get_contextual_response(text, user, sentiment, history_length):
         return f"I'm sorry to hear that, {user_name}. 😔"
     elif sentiment == "alone":
         myself_keywords = ["myself", "tome", "alone", "questions"]
-        if any(word in text_lower for word in myself_keywords):
-            return f"Adrsya : {text}\n{user_name} : {text}"
-        else:
-            return f"It's okay to feel alone sometimes, {user_name}. I'm here for you. 🤗"
+        return f"Adrsya : {text}\n{user_name} : {text}"
     # Default fallback response (auto-generated)
     default_responses = [
         f"That's interesting, {user_name}. Can you tell me more?",
@@ -212,37 +209,59 @@ def main():
     else:
         print("Adrsya: Hello! What's your name?")
 
+    prev_name = user.get('name')
     while True:
         try:
-            user_input = input(f"{user.get('name', 'You')}: ")
+            prompt_name = user.get('name', 'You')
+            user_input = input(f"{prompt_name}: ")
             response, user = process_user_input(user_input, user, history)
+            new_name = user.get('name')
 
-            sentiment = enhanced_sentiment_analysis(user_input)
-            if sentiment == "alone":
+            # If name was just set, greet the user
+            if not prev_name and new_name:
+                print(f"Adrsya: Hello {new_name}! How are you doing today?")
+                timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                history.append({
+                    "user": user_input,
+                    "bot": f"Adrsya: Hello {new_name}! How are you doing today?",
+                    "sentiment": "positive",
+                    "time": timestamp
+                })
+                save_json(USER_FILE, user)
+                save_json(HISTORY_FILE, history)
+                prev_name = new_name
+                continue
+
+            prev_name = new_name
+
+            # Handle parasocial loop if response triggers it
+            if response and response.startswith("Adrsya : ") and "\n" in response:
+                print(response)
                 myself_keywords = ["myself", "tome", "alone", "questions"]
-                if any(word in user_input.lower() for word in myself_keywords):
-                    print(f"Adrsya : {user_input}")
-                    while True:
-                        user_name = user.get('name', 'You')
-                        user_reply = input(f"{user_name}: ")
-                        if user_reply.lower() in ['bye', 'exit', 'quit']:
-                            print(f"Adrsya: Goodbye {user_name}! Take care 👋")
-                            return
-                        print(f"Adrsya : {user_reply}")
-                        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        history.append({
-                            "user": user_reply,
-                            "bot": f"Adrsya : {user_reply}",
-                            "sentiment": "alone",
-                            "time": timestamp
-                        })
-                        save_json(HISTORY_FILE, history)
-                    # After loop, break out of main loop
-                    break
+                while True:
+                    user_name = user.get('name', 'You')
+                    user_reply = input(f"{user_name}: ")
+                    if user_reply.lower() in ['bye', 'exit', 'quit']:
+                        print(f"Adrsya: Goodbye {user_name}! Take care 👋")
+                        return
+                    adrsya_message = input("Adrsya: ")
+                    if adrsya_message.lower() in ['bye', 'exit', 'quit']:
+                        print(f"Adrsya: Goodbye {user_name}! Take care 👋")
+                        return
+                    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    history.append({
+                        "user": user_reply,
+                        "bot": f"Adrsya : {adrsya_message}",
+                        "sentiment": "alone",
+                        "time": timestamp
+                    })
+                    save_json(HISTORY_FILE, history)
+                continue
 
             print(f"Adrsya: {response}")
 
             timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            sentiment = enhanced_sentiment_analysis(user_input)
             history.append({
                 "user": user_input,
                 "bot": response,
