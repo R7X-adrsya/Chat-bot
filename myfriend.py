@@ -65,7 +65,7 @@ def enhanced_sentiment_analysis(text):
             elif compound <= -0.1:
                 return "negative"
             else:
-                return "neutral"
+                return "alone"
         except:
             pass  # fallback
 
@@ -74,12 +74,14 @@ def enhanced_sentiment_analysis(text):
                          "excellent", "great", "good", "happy", "excited"]
     negative_keywords = ["hate", "terrible", "awful", "horrible",
                          "worst", "bad", "sad", "angry", "upset", "frustrated"]
-
+    myself_keywords = ["myself","tome","alone","questions"]
     if any(word in text_lower for word in positive_keywords):
         return "positive"
     elif any(word in text_lower for word in negative_keywords):
         return "negative"
-    return "neutral"
+    elif any(word in text_lower for word in myself_keywords ):
+        return "alone"
+    return "alone"
 
 
 def extract_user_info(text, user):
@@ -156,7 +158,7 @@ def get_contextual_response(text, user, sentiment, history_length):
 
     # About bot
     if "who are you" in text_lower or "your name" in text_lower:
-        return f"I'm your friendly chatbot, {user_name}! I love conversations."
+        return f"I'm your friend Ardsya, {user_name}! I love conversations."
 
     # How are you
     if "how are you" in text_lower:
@@ -167,7 +169,12 @@ def get_contextual_response(text, user, sentiment, history_length):
         return f"That's wonderful, {user_name}! 😄"
     elif sentiment == "negative":
         return f"I'm sorry to hear that, {user_name}. 😔"
-
+    elif sentiment == "alone":
+        myself_keywords = ["myself", "tome", "alone", "questions"]
+        if any(word in text_lower for word in myself_keywords):
+            return f"Adrsya : {text}\n{user_name} : {text}"
+        else:
+            return f"It's okay to feel alone sometimes, {user_name}. I'm here for you. 🤗"
     # Default fallback response (auto-generated)
     default_responses = [
         f"That's interesting, {user_name}. Can you tell me more?",
@@ -201,22 +208,45 @@ def main():
     history = load_json(HISTORY_FILE, [])
 
     if user.get('name'):
-        print(f"ChatBot: Welcome back, {user['name']}! 😊")
+        print(f"Adrsya: Welcome back, {user['name']}! 😊")
     else:
-        print("ChatBot: Hello! What's your name?")
+        print("Adrsya: Hello! What's your name?")
 
     while True:
         try:
             user_input = input(f"{user.get('name', 'You')}: ")
             response, user = process_user_input(user_input, user, history)
 
-            print(f"ChatBot: {response}")
+            sentiment = enhanced_sentiment_analysis(user_input)
+            if sentiment == "alone":
+                myself_keywords = ["myself", "tome", "alone", "questions"]
+                if any(word in user_input.lower() for word in myself_keywords):
+                    print(f"Adrsya : {user_input}")
+                    while True:
+                        user_name = user.get('name', 'You')
+                        user_reply = input(f"{user_name}: ")
+                        if user_reply.lower() in ['bye', 'exit', 'quit']:
+                            print(f"Adrsya: Goodbye {user_name}! Take care 👋")
+                            return
+                        print(f"Adrsya : {user_reply}")
+                        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        history.append({
+                            "user": user_reply,
+                            "bot": f"Adrsya : {user_reply}",
+                            "sentiment": "alone",
+                            "time": timestamp
+                        })
+                        save_json(HISTORY_FILE, history)
+                    # After loop, break out of main loop
+                    break
+
+            print(f"Adrsya: {response}")
 
             timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             history.append({
                 "user": user_input,
                 "bot": response,
-                "sentiment": enhanced_sentiment_analysis(user_input),
+                "sentiment": sentiment,
                 "time": timestamp
             })
 
@@ -227,7 +257,7 @@ def main():
                 break
 
         except KeyboardInterrupt:
-            print("\nChatBot: Goodbye! 👋")
+            print("\nAdrsya: Goodbye! 👋")
             break
 
 
